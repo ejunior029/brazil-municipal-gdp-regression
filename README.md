@@ -11,6 +11,7 @@ This project builds a full regression pipeline on real Brazilian government data
   <img alt="scikit-learn" src="https://img.shields.io/badge/scikit--learn-pipelines-F7931E?logo=scikitlearn&logoColor=white">
   <img alt="XGBoost" src="https://img.shields.io/badge/XGBoost-gradient%20boosting-0A7ABF">
   <img alt="Optuna" src="https://img.shields.io/badge/Optuna-Bayesian%20optimization-6A0DAD">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-serving-009688?logo=fastapi&logoColor=white">
   <img alt="Data source" src="https://img.shields.io/badge/data-IBGE%20(Brazil)-009c3b">
 </p>
 
@@ -65,7 +66,8 @@ A plain linear model barely explains a third of the variance (R² = 0.38) — no
 Regressao/
 ├── data/                      # raw + processed data (gitignored)
 ├── src/
-│   └── baixar_dados.py        # pulls & builds the dataset straight from the IBGE API
+│   ├── baixar_dados.py        # pulls & builds the dataset straight from the IBGE API
+│   └── api.py                 # FastAPI service that serves live predictions from the trained model
 ├── notebooks/
 │   ├── 01_EDA.ipynb                    # exploratory analysis only — no modeling
 │   ├── 02_Baseline.ipynb               # train/test split, pipeline, first models
@@ -108,6 +110,33 @@ Note the absolute GDP value itself is deliberately *not* a feature — only its 
 3. **[Model comparison + cross-validation](notebooks/03_Comparacao_Modelos_CV.ipynb)** — Linear Regression, Ridge, Random Forest, and XGBoost compared with 5-fold CV on the training set only, visualized side by side.
 4. **[Bayesian optimization with Optuna](notebooks/04_Otimizacao_Optuna.ipynb)** — a TPE sampler searches the hyperparameter space of both tree-based models, then the champion is evaluated **once** on the untouched test set.
 
+## 🌐 Serving predictions with FastAPI
+
+The model doesn't just live in a notebook — [`src/api.py`](src/api.py) wraps the saved pipeline (`models/modelo_final.joblib`) in a small FastAPI service, so you can query it like any other backend.
+
+```bash
+uvicorn src.api:app --reload
+```
+
+That starts the API at `http://127.0.0.1:8000`, with interactive docs (Swagger) at `/docs`. A single `POST /prever` call takes a municipality's raw indicators and returns its predicted GDP per capita:
+
+```bash
+curl -X POST http://127.0.0.1:8000/prever \
+  -H "Content-Type: application/json" \
+  -d '{
+    "populacao": 111148,
+    "participacao_agropecuaria": 10.5,
+    "participacao_industria": 14.61,
+    "participacao_servicos": 46.86,
+    "participacao_administracao_publica": 28.03,
+    "uf": "RO",
+    "regiao": "Norte"
+  }'
+# {"pib_per_capita_previsto": 28385.96, ...}
+```
+
+For reference, that's Ariquemes-RO — its real GDP per capita is R$28,892, so the model landed within ~1.7% of it. Before the request even reaches the model, Pydantic validators reject anything that couldn't be a real municipality: an unknown state/region code, or sector shares that don't add up to roughly 100%.
+
 ## 🚀 Run it yourself
 
 ```bash
@@ -123,17 +152,21 @@ cd src && python baixar_dados.py
 
 # 4. open the notebooks, in order
 jupyter lab notebooks/
+
+# 5. optional — once 04_Otimizacao_Optuna.ipynb has produced models/modelo_final.joblib,
+#    serve live predictions:
+uvicorn src.api:app --reload
 ```
 
 ## 🛠️ Stack
 
-`pandas` · `numpy` · `scikit-learn` · `xgboost` · `optuna` · `matplotlib` · `seaborn` · `joblib`
+`pandas` · `numpy` · `scikit-learn` · `xgboost` · `optuna` · `matplotlib` · `seaborn` · `joblib` · `fastapi` · `uvicorn`
 
 ## 🔭 What's next
 
 - [ ] Log-transform the target to tame the extreme mining/oil-town outliers
 - [ ] Feature: distance to the nearest state capital or metropolitan region
 - [ ] SHAP values to explain *why* the model predicts what it predicts, municipality by municipality
-- [ ] A small Streamlit app so you can type in a hypothetical municipality's profile and get a live prediction
+- [ ] A small Streamlit front-end on top of the FastAPI service, so anyone can try a prediction without touching `curl`
 
 If any of that sounds interesting, watch this repo — or better yet, open a PR.
