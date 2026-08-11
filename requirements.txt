@@ -8,3 +8,5 @@ xgboost
 optuna
 joblib
 requests
+fastapi
+uvicorn[standard]
