@@ -11,6 +11,7 @@ This project builds a full regression pipeline on real Brazilian government data
   <img alt="scikit-learn" src="https://img.shields.io/badge/scikit--learn-pipelines-F7931E?logo=scikitlearn&logoColor=white">
   <img alt="XGBoost" src="https://img.shields.io/badge/XGBoost-gradient%20boosting-0A7ABF">
   <img alt="Optuna" src="https://img.shields.io/badge/Optuna-Bayesian%20optimization-6A0DAD">
+  <img alt="SHAP" src="https://img.shields.io/badge/SHAP-explainability-8A2BE2">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-serving-009688?logo=fastapi&logoColor=white">
   <img alt="Data source" src="https://img.shields.io/badge/data-IBGE%20(Brazil)-009c3b">
 </p>
@@ -72,7 +73,8 @@ Regressao/
 │   ├── 01_EDA.ipynb                    # exploratory analysis only — no modeling
 │   ├── 02_Baseline.ipynb               # train/test split, pipeline, first models
 │   ├── 03_Comparacao_Modelos_CV.ipynb  # Linear/Ridge/RandomForest/XGBoost, 5-fold CV
-│   └── 04_Otimizacao_Optuna.ipynb      # Bayesian hyperparameter search + final evaluation
+│   ├── 04_Otimizacao_Optuna.ipynb      # Bayesian hyperparameter search + final evaluation
+│   └── 05_Explicabilidade_SHAP.ipynb   # global + per-municipality explainability (SHAP)
 ├── models/                    # trained pipelines (.joblib, gitignored)
 ├── reports/                   # exported charts (gitignored)
 └── requirements.txt
@@ -109,6 +111,14 @@ Note the absolute GDP value itself is deliberately *not* a feature — only its 
 2. **[Baseline](notebooks/02_Baseline.ipynb)** — train/test split *before* any transformation (no leakage), a `ColumnTransformer` pipeline, and two reference models.
 3. **[Model comparison + cross-validation](notebooks/03_Comparacao_Modelos_CV.ipynb)** — Linear Regression, Ridge, Random Forest, and XGBoost compared with 5-fold CV on the training set only, visualized side by side.
 4. **[Bayesian optimization with Optuna](notebooks/04_Otimizacao_Optuna.ipynb)** — a TPE sampler searches the hyperparameter space of both tree-based models, then the champion is evaluated **once** on the untouched test set.
+5. **[Explainability with SHAP](notebooks/05_Explicabilidade_SHAP.ipynb)** — explains the final model both globally (which features drive predictions overall) and locally, municipality by municipality.
+
+## 🔎 Why the model predicts what it predicts
+
+Metrics say *how good* the model is; SHAP says *why* it predicted a specific number for a specific municipality. Two findings stood out:
+
+- **`participacao_administracao_publica` isn't just the strongest linear correlate from the EDA (−0.55) — it's also, by a wide margin, the feature the model relies on most.** Two independent methods (a correlation matrix and SHAP on a tree ensemble) converge on the same answer, which is a good sign the signal is real.
+- **The model's single worst miss is Canaã dos Carajás-PA** — the same mining-town outlier flagged back in the EDA. SHAP shows the model gets the *direction* of every effect right, it just can't extrapolate to a magnitude that extreme from what it saw in training. Same root cause the CV-vs-test RMSE gap pointed to in notebook 04, confirmed here through a completely different lens.
 
 ## 🌐 Serving predictions with FastAPI
 
@@ -160,13 +170,12 @@ uvicorn src.api:app --reload
 
 ## 🛠️ Stack
 
-`pandas` · `numpy` · `scikit-learn` · `xgboost` · `optuna` · `matplotlib` · `seaborn` · `joblib` · `fastapi` · `uvicorn`
+`pandas` · `numpy` · `scikit-learn` · `xgboost` · `optuna` · `shap` · `matplotlib` · `seaborn` · `joblib` · `fastapi` · `uvicorn`
 
 ## 🔭 What's next
 
 - [ ] Log-transform the target to tame the extreme mining/oil-town outliers
 - [ ] Feature: distance to the nearest state capital or metropolitan region
-- [ ] SHAP values to explain *why* the model predicts what it predicts, municipality by municipality
 - [ ] A small Streamlit front-end on top of the FastAPI service, so anyone can try a prediction without touching `curl`
 
 If any of that sounds interesting, watch this repo — or better yet, open a PR.
