@@ -176,6 +176,5 @@ uvicorn src.api:app --reload
 
 - [ ] Log-transform the target to tame the extreme mining/oil-town outliers
 - [ ] Feature: distance to the nearest state capital or metropolitan region
-- [ ] A small Streamlit front-end on top of the FastAPI service, so anyone can try a prediction without touching `curl`
 
 If any of that sounds interesting, watch this repo — or better yet, open a PR.
