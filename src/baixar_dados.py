@@ -1,15 +1,31 @@
 # Baixa e monta o dataset de PIB per capita dos municipios brasileiros
-# Fonte: IBGE - Sistema IBGE de Recuperacao Automatica (API SIDRA / servicodados.ibge.gov.br)
-#   Tabela 5938: Produto Interno Bruto dos Municipios (ano de referencia: ver ANO abaixo)
-#   Tabela 6579: Populacao residente estimada (ano de referencia: ver ANO abaixo)
-# Portal: https://www.ibge.gov.br/estatisticas/economicas/contas-nacionais/9088-produto-interno-bruto-dos-municipios.html
+#
+# Duas interfaces diferentes do IBGE aparecem neste script, e nao sao a mesma coisa:
+#
+#   - SIDRA (https://sidra.ibge.gov.br) e o site de NAVEGACAO — feito pra um humano explorar as
+#     tabelas pelo navegador, ver quais variaveis existem e descobrir os codigos numericos delas.
+#     E so onde a gente "garimpou" os IDs usados abaixo (tabela 5938, variavel 37, etc.); o script
+#     nunca acessa o SIDRA diretamente, ele so foi consultado uma vez, manualmente, pra montar este
+#     arquivo. Links de referencia (o que dava pra ver la, pra cada tabela usada aqui):
+#       https://sidra.ibge.gov.br/tabela/5938  (Produto Interno Bruto dos Municipios)
+#       https://sidra.ibge.gov.br/tabela/6579  (Populacao residente estimada)
+#
+#   - API de agregados do IBGE (servicodados.ibge.gov.br, ver BASE abaixo) e quem o script REALMENTE
+#     chama em buscar_variavel(), via requests.get(). E o mesmo acervo de dados do SIDRA, so que
+#     pensado pra maquina: em vez de uma pagina web pra navegar, ela devolve os numeros direto em
+#     JSON quando voce ja sabe o codigo da tabela/variavel que quer (docs da API:
+#     https://servicodados.ibge.gov.br/api/docs/agregados).
+#
+# Resumindo o fluxo: SIDRA responde "quais dados existem e com que codigo" (pesquisa manual, feita
+# uma vez); a API responde "me da os valores desses codigos" (o que o codigo abaixo automatiza).
 import requests
 import pandas as pd
 
 ANO = "2021"  # 2022/2023 ainda nao tem a abertura por setor (agropecuaria/industria/servicos) publicada por municipio
-BASE = "https://servicodados.ibge.gov.br/api/v3/agregados"
+BASE = "https://servicodados.ibge.gov.br/api/v3/agregados"  # endpoint da API — e para ca que buscar_variavel() manda as requisicoes
 
-# variaveis da tabela 5938 (valores em % de participacao no VAB total do municipio)
+# codigos de tabela/variavel abaixo foram identificados navegando no SIDRA (ver cabecalho do
+# arquivo); os valores buscados aqui sao % de participacao no VAB total do municipio (tabela 5938)
 VARIAVEIS_PIB = {
     "516": "participacao_agropecuaria",
     "520": "participacao_industria",
@@ -21,7 +37,7 @@ VARIAVEL_PIB_TOTAL = "37"  # tabela 5938 - PIB a precos correntes (Mil Reais) - 
 
 
 def buscar_variavel(tabela, variavel, ano):
-    """Busca UMA variavel do SIDRA/IBGE para TODOS os municipios do Brasil, num unico ano.
+    """Busca UMA variavel na API de agregados do IBGE, para TODOS os municipios do Brasil, num unico ano.
 
     Monta a URL do endpoint de agregados do IBGE (docs: https://servicodados.ibge.gov.br/api/docs/agregados)
     para a tabela e variavel pedidas, no nivel territorial N6 (municipio), com "localidades=N6[all]"
